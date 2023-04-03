@@ -54,7 +54,7 @@ func main() {
 	var user struct{
 		Id   int
 		Name string
-    }
+	}
 	err = tory.QueryRow(pool, "get-current-time", tory.Args{"id": 42}, &user.Id, &user.Name)
 	if err != nil {
 		panic(err)
