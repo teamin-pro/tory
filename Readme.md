@@ -1,3 +1,4 @@
+[![Build](https://github.com/gamarjoba-team/tory/actions/workflows/go.yml/badge.svg)](https://github.com/gamarjoba-team/tory/actions/workflows/go.yml)
 ## Tory
 
 Database wrapper and simple migration tool.
