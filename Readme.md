@@ -40,16 +40,15 @@ func main() {
 		panic(err)
 	}
 
-	db := tory.NewDB(pool)
+	t := tory.New(pool)
 	
-	num, err := db.LoadQueries(sqlFiles)
+	err = t.Load(sqlFiles)
 	if err != nil {
 		panic(err)
 	}
-	log.Println("load queries:", num)
 	
 	var now time.Time
-	err = tory.QueryRow(db, "get-current-time", nil, &now)
+	err = tory.QueryRow(t, "get-current-time", nil, &now)
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +58,7 @@ func main() {
 		Id   int
 		Name string
 	}
-	err = tory.QueryRow(db, "get-current-time", tory.Args{"id": 42}, &user.Id, &user.Name)
+	err = tory.QueryRow(t, "get-current-time", tory.Args{"id": 42}, &user.Id, &user.Name)
 	if err != nil {
 		panic(err)
 	}
