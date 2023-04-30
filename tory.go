@@ -2,13 +2,25 @@ package tory
 
 import (
 	"embed"
+	"sort"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pkg/errors"
 )
 
-var allQueries = make(map[string]parsedQuery)
+func NewDB(pool *pgxpool.Pool) DB {
+	return DB{
+		pool:    pool,
+		queries: make(map[string]ParsedQuery),
+	}
+}
 
-func LoadQueries(files embed.FS) (int, error) {
+type DB struct {
+	pool    *pgxpool.Pool
+	queries map[string]ParsedQuery
+}
+
+func (db DB) LoadQueries(files embed.FS) (int, error) {
 	var numFound int
 
 	dir, err := files.ReadDir(".")
@@ -22,10 +34,29 @@ func LoadQueries(files embed.FS) (int, error) {
 			return numFound, errors.Wrapf(err, "read sql file %s fail:", f.Name())
 		}
 		for k, v := range fileQueries {
-			allQueries[k] = v
+			db.queries[k] = v
 			numFound++
 		}
 	}
 
 	return numFound, nil
+}
+
+func (db DB) GetQuery(name string) (ParsedQuery, error) {
+	query := db.queries[name]
+	if query.rawBody == "" {
+		return query, errors.Errorf("query not found: `%s`", name)
+	}
+	return query, nil
+}
+
+func (db DB) AllQueries() []ParsedQuery {
+	res := make([]ParsedQuery, 0, len(db.queries))
+	for _, v := range db.queries {
+		res = append(res, v)
+	}
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].name < res[j].name
+	})
+	return res
 }

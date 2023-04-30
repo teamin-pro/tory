@@ -9,18 +9,18 @@ import (
 	"strings"
 )
 
-type parsedQuery struct {
+type ParsedQuery struct {
 	name       string
 	rawBody    string
 	parsedBody string
 	varsList   []string
 }
 
-func (q parsedQuery) Body() string {
+func (q ParsedQuery) Body() string {
 	return q.parsedBody
 }
 
-func (q parsedQuery) Args(args Args) []any {
+func (q ParsedQuery) Args(args Args) []any {
 	res := make([]any, len(q.varsList))
 	for i, name := range q.varsList {
 		value, found := args[name]
@@ -32,27 +32,19 @@ func (q parsedQuery) Args(args Args) []any {
 	return res
 }
 
-func getQuery(name string) parsedQuery {
-	query := allQueries[name]
-	if query.rawBody == "" {
-		log.Panicf("query not found: `%s` (from %d)", name, len(allQueries))
-	}
-	return query
-}
-
-func readQueries(files fs.ReadFileFS, fname string) (map[string]parsedQuery, error) {
+func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, error) {
 	content, err := files.ReadFile(fname)
 	if err != nil {
 		return nil, err
 	}
 
-	queries := make(map[string]parsedQuery)
+	queries := make(map[string]ParsedQuery)
 
-	var q parsedQuery
+	var q ParsedQuery
 	for _, line := range strings.Split(string(content), "\n") {
 		bits := strings.Fields(line)
 		if len(bits) == 3 && bits[0] == "--" && bits[1] == "name:" {
-			q = parsedQuery{
+			q = ParsedQuery{
 				name: bits[2],
 			}
 			continue

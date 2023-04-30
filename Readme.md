@@ -32,21 +32,22 @@ import (
 //go:embed *.sql
 var sqlFiles embed.FS
 
-func init() {
-	_, err := tory.LoadQueries(sqlFiles)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func main() {
 	pool, err := pgxpool.Connect(context.Background(), "...")
 	if err != nil {
 		panic(err)
 	}
 
+	db := tory.NewDB(pool)
+	
+	num, err := db.LoadQueries(sqlFiles)
+	if err != nil {
+		panic(err)
+	}
+	log.Println("load queries:", num)
+	
 	var now time.Time
-	err = tory.QueryRow(pool, "get-current-time", nil, &now)
+	err = tory.QueryRow(db, "get-current-time", nil, &now)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +57,7 @@ func main() {
 		Id   int
 		Name string
 	}
-	err = tory.QueryRow(pool, "get-current-time", tory.Args{"id": 42}, &user.Id, &user.Name)
+	err = tory.QueryRow(db, "get-current-time", tory.Args{"id": 42}, &user.Id, &user.Name)
 	if err != nil {
 		panic(err)
 	}

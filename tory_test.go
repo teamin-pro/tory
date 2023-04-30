@@ -5,33 +5,40 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 //go:embed test.sql
 var testFiles embed.FS
 
 func TestParse(t *testing.T) {
-	n, err := LoadQueries(testFiles)
-	assert.NoError(t, err)
+	db := NewDB(nil)
+
+	n, err := db.LoadQueries(testFiles)
+	require.NoError(t, err)
 	assert.Equal(t, 4, n)
 
 	t.Run("remove comments", func(t *testing.T) {
-		q := getQuery("test-comments")
+		q, err := db.GetQuery("test-comments")
+		require.NoError(t, err)
 		assert.Equal(t, "SELECT 1 + 2", q.Body())
 	})
 
 	t.Run("remove comments after semicolon", func(t *testing.T) {
-		q := getQuery("test-comments-after-semicolon")
+		q, err := db.GetQuery("test-comments-after-semicolon")
+		require.NoError(t, err)
 		assert.Equal(t, "SELECT 1 + 2", q.Body())
 	})
 
 	t.Run("arguments", func(t *testing.T) {
-		q := getQuery("test-arguments")
+		q, err := db.GetQuery("test-arguments")
+		require.NoError(t, err)
 		assert.Equal(t, "SELECT name FROM users WHERE id = $1 AND name ILIKE $2", q.Body())
 		assert.Equal(t, []any{42, "Alice"}, q.Args(Args{"id": 42, "q": "Alice"}))
 	})
 
 	t.Run("name", func(t *testing.T) {
-		getQuery("test.name-with-dots")
+		_, err := db.GetQuery("test.name-with-dots")
+		require.NoError(t, err)
 	})
 }

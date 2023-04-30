@@ -4,19 +4,10 @@ import (
 	"embed"
 	"sort"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 //go:embed patches.sql
 var sqlFiles embed.FS
-
-func init() {
-	_, err := LoadQueries(sqlFiles)
-	if err != nil {
-		panic(err)
-	}
-}
 
 type DbVersion struct {
 	Version   int       `db:"version"`
@@ -28,17 +19,28 @@ type Patch struct {
 	Name    string
 }
 
-func ApplyPatches(pool *pgxpool.Pool, version int, patches []Patch) (DbVersion, error) {
+type ApplyPatchesOptions struct {
+	OnSkip   func(Patch)
+	OnStart  func(Patch)
+	OnFinish func(Patch)
+}
+
+func ApplyPatches(db DB, version int, patches []Patch, opts ApplyPatchesOptions) (DbVersion, error) {
+	_, err := db.LoadQueries(sqlFiles)
+	if err != nil {
+		return DbVersion{}, err
+	}
+
 	sort.Slice(patches, func(i, j int) bool {
 		return patches[i].Version < patches[j].Version
 	})
 
-	return Atomic(pool, func(tx Tx[DbVersion]) (DbVersion, error) {
-		if err := Exec(pool, "tory.create-table-db-version", nil); err != nil {
+	return Atomic(db, func(tx Tx[DbVersion]) (DbVersion, error) {
+		if err := Exec(db, "tory.create-table-db-version", nil); err != nil {
 			return DbVersion{}, err
 		}
 
-		current, err := Get[DbVersion](pool, "tory.upsert-db-version", Args{
+		current, err := Get[DbVersion](db, "tory.upsert-db-version", Args{
 			"version": version,
 		})
 		if err != nil {
@@ -47,16 +49,27 @@ func ApplyPatches(pool *pgxpool.Pool, version int, patches []Patch) (DbVersion, 
 
 		for _, patch := range patches {
 			if patch.Version <= current.Version {
+				if opts.OnSkip != nil {
+					opts.OnSkip(patch)
+				}
 				continue
 			}
 
-			if err := Exec(pool, patch.Name, nil); err != nil {
+			if opts.OnStart != nil {
+				opts.OnStart(patch)
+			}
+
+			if err := Exec(db, patch.Name, nil); err != nil {
 				return current, err
 			}
 
 			current.Version = patch.Version
-			if err := Exec(pool, "tory.update-db-version", Args{"version": current.Version}); err != nil {
+			if err := Exec(db, "tory.update-db-version", Args{"version": current.Version}); err != nil {
 				return current, err
+			}
+
+			if opts.OnFinish != nil {
+				opts.OnFinish(patch)
 			}
 		}
 
