@@ -12,7 +12,7 @@ import (
 var testFiles embed.FS
 
 func TestParse(t *testing.T) {
-	db := NewDB(nil)
+	db := New(nil)
 
 	err := db.Load(testFiles)
 	require.NoError(t, err)

@@ -3,7 +3,6 @@ package tory
 import (
 	"embed"
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,26 +29,21 @@ type ApplyPatchesOptions struct {
 	OnFinish func(Patch)
 }
 
-func ApplyPatches(db DB, opts ApplyPatchesOptions) (DbVersion, error) {
-	patchRegex := regexp.MustCompile(`^\d+4-(.+)$`)
-
+func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
 	patches := make([]Patch, 0)
 	queries := db.AllQueries()
-	for i, patch := range queries {
-		if !strings.HasPrefix(patch.Name(), opts.Prefix) {
+	for _, q := range queries {
+		if !strings.HasPrefix(q.Name(), opts.Prefix) {
 			continue
 		}
-
-		bits := patchRegex.FindStringSubmatch(strings.TrimPrefix(patch.Name(), opts.Prefix))
-		if len(bits) != 2 {
-			return DbVersion{}, fmt.Errorf("invalid patch name `%s`, want format XXXX-description, where XXXX are digits", patch.Name())
+		version := parseVersion(strings.TrimPrefix(q.Name(), opts.Prefix))
+		if version == -1 {
+			return DbVersion{}, fmt.Errorf("invalid patch name: `%s`", q.Name())
 		}
-
-		version, _ := strconv.ParseInt(strings.TrimLeft(bits[0], "0"), 10, 64)
-		patches[i] = Patch{
-			Version: int(version),
-			Name:    patch.Name(),
-		}
+		patches = append(patches, Patch{
+			Version: version,
+			Name:    q.Name(),
+		})
 	}
 
 	if len(patches) == 0 {
@@ -106,4 +100,18 @@ func ApplyPatches(db DB, opts ApplyPatchesOptions) (DbVersion, error) {
 
 		return currentVersion, nil
 	})
+}
+
+func parseVersion(str string) int {
+	bits := strings.SplitN(str, "-", 2)
+	if len(bits) != 2 {
+		return -1
+	}
+
+	version, err := strconv.ParseInt(strings.TrimLeft(bits[0], "0"), 10, 64)
+	if err != nil {
+		return -1
+	}
+
+	return int(version)
 }

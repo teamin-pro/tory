@@ -8,21 +8,21 @@ import (
 	"github.com/pkg/errors"
 )
 
-// NewDB creates a new DB containing the given pgxpool.Pool and queries collection
-func NewDB(pool *pgxpool.Pool) DB {
-	return DB{
+// New creates a new Tory containing the given pgxpool.Pool and queries collection
+func New(pool *pgxpool.Pool) Tory {
+	return Tory{
 		pool:    pool,
 		queries: make(map[string]ParsedQuery),
 	}
 }
 
-type DB struct {
+type Tory struct {
 	pool    *pgxpool.Pool
 	queries map[string]ParsedQuery
 }
 
 // Load loads all queries from the given embed.FS
-func (db DB) Load(files embed.FS) error {
+func (t Tory) Load(files embed.FS) error {
 	dir, err := files.ReadDir(".")
 	if err != nil {
 		return errors.Wrapf(err, "read sql dir fail")
@@ -34,7 +34,7 @@ func (db DB) Load(files embed.FS) error {
 			return errors.Wrapf(err, "read sql file %s fail:", f.Name())
 		}
 		for k, v := range fileQueries {
-			db.queries[k] = v
+			t.queries[k] = v
 		}
 	}
 
@@ -42,8 +42,8 @@ func (db DB) Load(files embed.FS) error {
 }
 
 // Query returns a query by name
-func (db DB) Query(name string) (ParsedQuery, error) {
-	query := db.queries[name]
+func (t Tory) Query(name string) (ParsedQuery, error) {
+	query := t.queries[name]
 	if query.rawBody == "" {
 		return query, errors.Errorf("query not found: `%s`", name)
 	}
@@ -51,9 +51,9 @@ func (db DB) Query(name string) (ParsedQuery, error) {
 }
 
 // AllQueries returns all queries in the database, sorted by name
-func (db DB) AllQueries() []ParsedQuery {
-	res := make([]ParsedQuery, 0, len(db.queries))
-	for _, v := range db.queries {
+func (t Tory) AllQueries() []ParsedQuery {
+	res := make([]ParsedQuery, 0, len(t.queries))
+	for _, v := range t.queries {
 		res = append(res, v)
 	}
 	sort.Slice(res, func(i, j int) bool {

@@ -11,12 +11,12 @@ import (
 
 type Args map[string]any
 
-func Exec(db DB, name string, args Args) error {
+func Exec(db Tory, name string, args Args) error {
 	_, err := ExecReturning(db, name, args)
 	return err
 }
 
-func ExecReturning(db DB, name string, args Args) (*pgconn.CommandTag, error) {
+func ExecReturning(db Tory, name string, args Args) (*pgconn.CommandTag, error) {
 	conn, err := db.pool.Acquire(context.Background())
 	if err != nil {
 		return nil, errors.Wrap(err, "get connection fail")
@@ -36,7 +36,7 @@ func ExecReturning(db DB, name string, args Args) (*pgconn.CommandTag, error) {
 	return &tag, nil
 }
 
-func QueryRow(db DB, name string, args Args, fields ...any) error {
+func QueryRow(db Tory, name string, args Args, fields ...any) error {
 	conn, err := db.pool.Acquire(context.Background())
 	if err != nil {
 		return errors.Wrap(err, "get connection fail")
@@ -59,7 +59,7 @@ func QueryRow(db DB, name string, args Args, fields ...any) error {
 	return nil
 }
 
-func Select[T any](db DB, name string, args Args) (result []T, err error) {
+func Select[T any](db Tory, name string, args Args) (result []T, err error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func Select[T any](db DB, name string, args Args) (result []T, err error) {
 	return
 }
 
-func Get[T any](db DB, name string, args Args) (result T, err error) {
+func Get[T any](db Tory, name string, args Args) (result T, err error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return *new(T), err

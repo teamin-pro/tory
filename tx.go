@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func Atomic[R any, T any](db DB, fn func(tx Tx[T]) (R, error)) (resp R, err error) {
+func Atomic[R any, T any](db Tory, fn func(tx Tx[T]) (R, error)) (resp R, err error) {
 	conn, err := db.pool.Acquire(context.Background())
 	if err != nil {
 		return resp, errors.Wrap(err, "get connection fail")
@@ -39,7 +39,7 @@ func Atomic[R any, T any](db DB, fn func(tx Tx[T]) (R, error)) (resp R, err erro
 }
 
 type Tx[T any] struct {
-	db    DB
+	db    Tory
 	pgxTx pgx.Tx
 }
 
