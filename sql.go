@@ -16,9 +16,11 @@ type ParsedQuery struct {
 	varsList   []string
 }
 
-func (q ParsedQuery) Body() string {
-	return q.parsedBody
-}
+func (q ParsedQuery) String() string { return q.Name() }
+
+func (q ParsedQuery) Name() string { return q.name }
+
+func (q ParsedQuery) Body() string { return q.parsedBody }
 
 func (q ParsedQuery) Args(args Args) []any {
 	res := make([]any, len(q.varsList))

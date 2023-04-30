@@ -2,7 +2,11 @@ package tory
 
 import (
 	"embed"
+	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -20,35 +24,62 @@ type Patch struct {
 }
 
 type ApplyPatchesOptions struct {
+	Prefix   string
 	OnSkip   func(Patch)
 	OnStart  func(Patch)
 	OnFinish func(Patch)
 }
 
-func ApplyPatches(db DB, version int, patches []Patch, opts ApplyPatchesOptions) (DbVersion, error) {
-	_, err := db.LoadQueries(sqlFiles)
-	if err != nil {
-		return DbVersion{}, err
+func ApplyPatches(db DB, opts ApplyPatchesOptions) (DbVersion, error) {
+	patchRegex := regexp.MustCompile(`^\d+4-(.+)$`)
+
+	patches := make([]Patch, 0)
+	queries := db.AllQueries()
+	for i, patch := range queries {
+		if !strings.HasPrefix(patch.Name(), opts.Prefix) {
+			continue
+		}
+
+		bits := patchRegex.FindStringSubmatch(strings.TrimPrefix(patch.Name(), opts.Prefix))
+		if len(bits) != 2 {
+			return DbVersion{}, fmt.Errorf("invalid patch name `%s`, want format XXXX-description, where XXXX are digits", patch.Name())
+		}
+
+		version, _ := strconv.ParseInt(strings.TrimLeft(bits[0], "0"), 10, 64)
+		patches[i] = Patch{
+			Version: int(version),
+			Name:    patch.Name(),
+		}
+	}
+
+	if len(patches) == 0 {
+		return DbVersion{}, fmt.Errorf("no patches found")
 	}
 
 	sort.Slice(patches, func(i, j int) bool {
 		return patches[i].Version < patches[j].Version
 	})
 
+	latestVersion := patches[len(patches)-1].Version
+
+	if err := db.Load(sqlFiles); err != nil {
+		return DbVersion{}, err
+	}
+
 	return Atomic(db, func(tx Tx[DbVersion]) (DbVersion, error) {
 		if err := Exec(db, "tory.create-table-db-version", nil); err != nil {
 			return DbVersion{}, err
 		}
 
-		current, err := Get[DbVersion](db, "tory.upsert-db-version", Args{
-			"version": version,
+		currentVersion, err := Get[DbVersion](db, "tory.upsert-db-version", Args{
+			"version": latestVersion,
 		})
 		if err != nil {
-			return current, err
+			return currentVersion, err
 		}
 
 		for _, patch := range patches {
-			if patch.Version <= current.Version {
+			if patch.Version <= currentVersion.Version {
 				if opts.OnSkip != nil {
 					opts.OnSkip(patch)
 				}
@@ -60,12 +91,12 @@ func ApplyPatches(db DB, version int, patches []Patch, opts ApplyPatchesOptions)
 			}
 
 			if err := Exec(db, patch.Name, nil); err != nil {
-				return current, err
+				return currentVersion, err
 			}
 
-			current.Version = patch.Version
-			if err := Exec(db, "tory.update-db-version", Args{"version": current.Version}); err != nil {
-				return current, err
+			currentVersion.Version = patch.Version
+			if err := Exec(db, "tory.update-db-version", Args{"version": currentVersion.Version}); err != nil {
+				return currentVersion, err
 			}
 
 			if opts.OnFinish != nil {
@@ -73,6 +104,6 @@ func ApplyPatches(db DB, version int, patches []Patch, opts ApplyPatchesOptions)
 			}
 		}
 
-		return current, nil
+		return currentVersion, nil
 	})
 }

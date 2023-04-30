@@ -21,7 +21,10 @@ func Atomic[R any, T any](db DB, fn func(tx Tx[T]) (R, error)) (resp R, err erro
 		return resp, errors.Wrap(err, "transaction fail")
 	}
 
-	resp, err = fn(Tx[T]{pgxTx: tx})
+	resp, err = fn(Tx[T]{
+		db:    db,
+		pgxTx: tx,
+	})
 	if err != nil {
 		_ = tx.Rollback(context.Background())
 		return resp, errors.Wrapf(err, "exec fail")
@@ -46,7 +49,7 @@ func (tx Tx[T]) Exec(name string, args Args) error {
 }
 
 func (tx Tx[T]) ExecReturning(name string, args Args) (*pgconn.CommandTag, error) {
-	query, err := tx.db.GetQuery(name)
+	query, err := tx.db.Query(name)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +63,7 @@ func (tx Tx[T]) ExecReturning(name string, args Args) (*pgconn.CommandTag, error
 }
 
 func (tx Tx[T]) QueryRow(name string, args Args, fields ...any) error {
-	query, err := tx.db.GetQuery(name)
+	query, err := tx.db.Query(name)
 	if err != nil {
 		return err
 	}
@@ -76,7 +79,7 @@ func (tx Tx[T]) QueryRow(name string, args Args, fields ...any) error {
 }
 
 func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, error)) (result []T, err error) {
-	query, err := tx.db.GetQuery(name)
+	query, err := tx.db.Query(name)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +107,7 @@ func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, er
 }
 
 func (tx Tx[T]) Select(name string, args Args) (result []T, err error) {
-	query, err := tx.db.GetQuery(name)
+	query, err := tx.db.Query(name)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +120,7 @@ func (tx Tx[T]) Select(name string, args Args) (result []T, err error) {
 }
 
 func (tx Tx[T]) Get(name string, args Args) (result T, err error) {
-	query, err := tx.db.GetQuery(name)
+	query, err := tx.db.Query(name)
 	if err != nil {
 		return *new(T), err
 	}

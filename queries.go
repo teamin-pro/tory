@@ -23,7 +23,7 @@ func ExecReturning(db DB, name string, args Args) (*pgconn.CommandTag, error) {
 	}
 	defer conn.Release()
 
-	query, err := db.GetQuery(name)
+	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func QueryRow(db DB, name string, args Args, fields ...any) error {
 	}
 	defer conn.Release()
 
-	query, err := db.GetQuery(name)
+	query, err := db.Query(name)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func QueryRow(db DB, name string, args Args, fields ...any) error {
 }
 
 func Select[T any](db DB, name string, args Args) (result []T, err error) {
-	query, err := db.GetQuery(name)
+	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func Select[T any](db DB, name string, args Args) (result []T, err error) {
 }
 
 func Get[T any](db DB, name string, args Args) (result T, err error) {
-	query, err := db.GetQuery(name)
+	query, err := db.Query(name)
 	if err != nil {
 		return *new(T), err
 	}
