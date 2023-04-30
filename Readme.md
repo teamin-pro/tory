@@ -3,6 +3,8 @@
 
 Database wrapper and simple migration tool.
 
+Inspired by [dotsql](https://github.com/qustavo/dotsql).
+
 ### Usage
 
 **queries.sql**
