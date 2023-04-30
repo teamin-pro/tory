@@ -31,15 +31,23 @@ type ApplyPatchesOptions struct {
 
 func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
 	patches := make([]Patch, 0)
-	queries := db.AllQueries()
-	for _, q := range queries {
+	versions := make(map[int]struct{})
+
+	for _, q := range db.AllQueries() {
 		if !strings.HasPrefix(q.Name(), opts.Prefix) {
 			continue
 		}
+
 		version := parseVersion(strings.TrimPrefix(q.Name(), opts.Prefix))
 		if version == -1 {
 			return DbVersion{}, fmt.Errorf("invalid patch name: `%s`", q.Name())
 		}
+
+		if _, ok := versions[version]; ok {
+			return DbVersion{}, fmt.Errorf("duplicate patch version: `%s`", q.Name())
+		}
+		versions[version] = struct{}{}
+
 		patches = append(patches, Patch{
 			Version: version,
 			Name:    q.Name(),
