@@ -1,9 +1,11 @@
 package tory
 
 import (
+	"context"
 	"embed"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,11 +14,14 @@ import (
 var testFiles embed.FS
 
 func TestParse(t *testing.T) {
-	db := New(nil)
-
-	err := db.Load(testFiles)
+	pool, err := pgxpool.New(context.Background(), "postgres://tory:tory@localhost:5432")
 	require.NoError(t, err)
-	assert.Len(t, db.AllQueries(), 4)
+
+	db := New(pool)
+
+	err = db.Load(testFiles)
+	require.NoError(t, err)
+	assert.Len(t, db.AllQueries(), 5)
 
 	t.Run("remove comments", func(t *testing.T) {
 		q, err := db.Query("test-comments")
@@ -40,5 +45,12 @@ func TestParse(t *testing.T) {
 	t.Run("name", func(t *testing.T) {
 		_, err := db.Query("test.name-with-dots")
 		require.NoError(t, err)
+	})
+
+	t.Run("exec", func(t *testing.T) {
+		var res int
+		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		require.NoError(t, err)
+		assert.Equal(t, 3, res)
 	})
 }
