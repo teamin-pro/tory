@@ -14,4 +14,4 @@ SELECT name FROM users WHERE id = :id AND name ILIKE :q;
 SELECT 1;
 
 -- name: test-sum
-SELECT :x + :y;
+SELECT :x::int + :y::int;
