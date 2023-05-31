@@ -17,18 +17,12 @@ func Exec(db Tory, name string, args Args) error {
 }
 
 func ExecReturning(db Tory, name string, args Args) (*pgconn.CommandTag, error) {
-	conn, err := db.pool.Acquire(context.Background())
-	if err != nil {
-		return nil, errors.Wrap(err, "get connection fail")
-	}
-	defer conn.Release()
-
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
-	tag, err := conn.Exec(context.Background(), query.Body(), query.Args(args)...)
+	tag, err := db.pool.Exec(context.Background(), query.Body(), query.Args(args)...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "exec `%s` fail", name)
 	}
@@ -37,18 +31,12 @@ func ExecReturning(db Tory, name string, args Args) (*pgconn.CommandTag, error) 
 }
 
 func QueryRow(db Tory, name string, args Args, fields ...any) error {
-	conn, err := db.pool.Acquire(context.Background())
-	if err != nil {
-		return errors.Wrap(err, "get connection fail")
-	}
-	defer conn.Release()
-
 	query, err := db.Query(name)
 	if err != nil {
 		return err
 	}
 
-	err = conn.QueryRow(context.Background(), query.Body(), query.Args(args)...).Scan(fields...)
+	err = db.pool.QueryRow(context.Background(), query.Body(), query.Args(args)...).Scan(fields...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return err

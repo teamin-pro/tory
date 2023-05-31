@@ -1,9 +1,11 @@
 package tory
 
 import (
+	"context"
 	"embed"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -12,11 +14,10 @@ import (
 var testFiles embed.FS
 
 func TestParse(t *testing.T) {
-	db := New(nil)
+	db := New(newPool(t))
 
-	err := db.Load(testFiles)
-	require.NoError(t, err)
-	assert.Len(t, db.AllQueries(), 4)
+	require.NoError(t, db.Load(testFiles))
+	assert.Len(t, db.AllQueries(), 5)
 
 	t.Run("remove comments", func(t *testing.T) {
 		q, err := db.Query("test-comments")
@@ -41,4 +42,42 @@ func TestParse(t *testing.T) {
 		_, err := db.Query("test.name-with-dots")
 		require.NoError(t, err)
 	})
+
+	t.Run("exec", func(t *testing.T) {
+		var res int
+		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		require.NoError(t, err)
+		assert.Equal(t, 3, res)
+	})
+}
+
+// BenchmarkExec-10    	   34465	     33082 ns/op	     736 B/op	       9 allocs/op
+func BenchmarkExec(b *testing.B) {
+	db := New(newPool(b))
+	require.NoError(b, db.Load(testFiles))
+
+	var res int
+
+	// warmup
+	err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func newPool(t testing.TB) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), "postgres://tory:tory@localhost:5432")
+	require.NoError(t, err)
+	return pool
 }

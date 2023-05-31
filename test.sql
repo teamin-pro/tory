@@ -12,3 +12,6 @@ SELECT name FROM users WHERE id = :id AND name ILIKE :q;
 
 -- name: test.name-with-dots
 SELECT 1;
+
+-- name: test-sum
+SELECT :x::int + :y::int;

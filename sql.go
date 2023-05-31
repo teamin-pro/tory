@@ -82,12 +82,12 @@ func normalizeSQL(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
-var varsRegex = regexp.MustCompile(`:[a-zA-Z][a-zA-Z_]*`)
+var varsRegex = regexp.MustCompile(`[^:]:([a-zA-Z][a-zA-Z_]*)`)
 
 func parseVars(s string) []string {
 	names := make(map[string]struct{})
 	for _, name := range varsRegex.FindAllString(s, -1) {
-		names[name[1:]] = struct{}{}
+		names[name[2:]] = struct{}{}
 	}
 
 	lst := make([]string, 0, len(names))
