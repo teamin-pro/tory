@@ -14,13 +14,9 @@ import (
 var testFiles embed.FS
 
 func TestParse(t *testing.T) {
-	pool, err := pgxpool.New(context.Background(), "postgres://tory:tory@localhost:5432")
-	require.NoError(t, err)
+	db := New(newPool(t))
 
-	db := New(pool)
-
-	err = db.Load(testFiles)
-	require.NoError(t, err)
+	require.NoError(t, db.Load(testFiles))
 	assert.Len(t, db.AllQueries(), 5)
 
 	t.Run("remove comments", func(t *testing.T) {
@@ -53,4 +49,35 @@ func TestParse(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 3, res)
 	})
+}
+
+// BenchmarkExec-10    	   34465	     33082 ns/op	     736 B/op	       9 allocs/op
+func BenchmarkExec(b *testing.B) {
+	db := New(newPool(b))
+	require.NoError(b, db.Load(testFiles))
+
+	var res int
+
+	// warmup
+	err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func newPool(t testing.TB) *pgxpool.Pool {
+	t.Helper()
+	pool, err := pgxpool.New(context.Background(), "postgres://tory:tory@localhost:5432")
+	require.NoError(t, err)
+	return pool
 }
