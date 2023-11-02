@@ -47,28 +47,30 @@ func QueryRow(db Tory, name string, args Args, fields ...any) error {
 	return nil
 }
 
-func Select[T any](db Tory, name string, args Args) (result []T, err error) {
+func Select[T any](db Tory, name string, args Args) ([]T, error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
+	result := make([]T, 0)
 	if err := pgxscan.Select(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
 		return nil, errors.Wrapf(err, "select fail on `%s`", name)
 	}
 
-	return
+	return result, nil
 }
 
-func Get[T any](db Tory, name string, args Args) (result T, err error) {
+func Get[T any](db Tory, name string, args Args) (*T, error) {
 	query, err := db.Query(name)
 	if err != nil {
-		return *new(T), err
+		return nil, err
 	}
 
+	var result T
 	if err := pgxscan.Get(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
-		return *new(T), errors.Wrapf(err, "get fail on `%s`", name)
+		return nil, errors.Wrapf(err, "get fail on `%s`", name)
 	}
 
-	return
+	return &result, nil
 }

@@ -75,10 +75,11 @@ func (tx Tx[T]) QueryRow(name string, args Args, fields ...any) error {
 		}
 		return errors.Wrapf(err, "query row fail on `%s`", name)
 	}
+
 	return nil
 }
 
-func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, error)) (result []T, err error) {
+func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, error)) ([]T, error) {
 	query, err := tx.db.Query(name)
 	if err != nil {
 		return nil, err
@@ -86,24 +87,25 @@ func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, er
 
 	rows, err := tx.pgxTx.Query(context.Background(), query.Body(), query.Args(args)...)
 	if err != nil {
-		return result, errors.Wrapf(err, "query `%s` fail", name)
+		return nil, errors.Wrapf(err, "query `%s` fail", name)
 	}
 	defer rows.Close()
 
+	result := make([]T, 0)
 	for rows.Next() {
 		item, err := scanRow(rows)
 		if err != nil {
-			return result, errors.Wrap(err, "scan row fail")
+			return nil, errors.Wrap(err, "scan row fail")
 		}
 		result = append(result, item)
 	}
 
 	err = rows.Err()
 	if err != nil {
-		return result, errors.Wrap(err, "rows fail")
+		return nil, errors.Wrap(err, "rows fail")
 	}
 
-	return
+	return result, nil
 }
 
 func (tx Tx[T]) Select(name string, args Args) (result []T, err error) {
@@ -119,15 +121,16 @@ func (tx Tx[T]) Select(name string, args Args) (result []T, err error) {
 	return
 }
 
-func (tx Tx[T]) Get(name string, args Args) (result T, err error) {
+func (tx Tx[T]) Get(name string, args Args) (*T, error) {
 	query, err := tx.db.Query(name)
 	if err != nil {
-		return *new(T), err
+		return nil, err
 	}
 
+	var result T
 	if err := pgxscan.Get(context.Background(), tx.pgxTx, &result, query.Body(), query.Args(args)...); err != nil {
-		return *new(T), errors.Wrapf(err, "get fail on `%s`", name)
+		return nil, errors.Wrapf(err, "get fail on `%s`", name)
 	}
 
-	return
+	return &result, nil
 }

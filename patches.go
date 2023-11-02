@@ -29,7 +29,7 @@ type ApplyPatchesOptions struct {
 	OnFinish func(Patch)
 }
 
-func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
+func ApplyPatches(db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
 	patches := make([]Patch, 0)
 	versions := make(map[int]struct{})
 
@@ -40,11 +40,11 @@ func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
 
 		version := parseVersion(strings.TrimPrefix(q.Name(), opts.Prefix))
 		if version == -1 {
-			return DbVersion{}, fmt.Errorf("invalid patch name: `%s`", q.Name())
+			return nil, fmt.Errorf("invalid patch name: `%s`", q.Name())
 		}
 
 		if _, ok := versions[version]; ok {
-			return DbVersion{}, fmt.Errorf("duplicate patch version: `%s`", q.Name())
+			return nil, fmt.Errorf("duplicate patch version: `%s`", q.Name())
 		}
 		versions[version] = struct{}{}
 
@@ -55,7 +55,7 @@ func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
 	}
 
 	if len(patches) == 0 {
-		return DbVersion{}, fmt.Errorf("no patches found")
+		return nil, fmt.Errorf("no patches found")
 	}
 
 	sort.Slice(patches, func(i, j int) bool {
@@ -65,12 +65,12 @@ func ApplyPatches(db Tory, opts ApplyPatchesOptions) (DbVersion, error) {
 	latestVersion := patches[len(patches)-1].Version
 
 	if err := db.Load(sqlFiles); err != nil {
-		return DbVersion{}, err
+		return nil, err
 	}
 
-	return Atomic(db, func(tx Tx[DbVersion]) (DbVersion, error) {
+	return Atomic(db, func(tx Tx[DbVersion]) (*DbVersion, error) {
 		if err := Exec(db, "tory.create-table-db-version", nil); err != nil {
-			return DbVersion{}, err
+			return nil, err
 		}
 
 		currentVersion, err := Get[DbVersion](db, "tory.upsert-db-version", Args{
