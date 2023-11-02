@@ -108,18 +108,17 @@ func (tx Tx[T]) Query(name string, args Args, scanRow func(rows pgx.Rows) (T, er
 	return result, nil
 }
 
-func (tx Tx[T]) Select(name string, args Args) ([]*T, error) {
+func (tx Tx[T]) Select(name string, args Args) (result []T, err error) {
 	query, err := tx.db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
-	result := make([]*T, 0)
 	if err := pgxscan.Select(context.Background(), tx.pgxTx, &result, query.Body(), query.Args(args)...); err != nil {
 		return nil, errors.Wrapf(err, "select fail on `%s`", name)
 	}
 
-	return result, nil
+	return
 }
 
 func (tx Tx[T]) Get(name string, args Args) (*T, error) {
