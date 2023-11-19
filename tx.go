@@ -129,6 +129,9 @@ func (tx Tx[T]) Get(name string, args Args) (*T, error) {
 
 	var result T
 	if err := pgxscan.Get(context.Background(), tx.pgxTx, &result, query.Body(), query.Args(args)...); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
 		return nil, errors.Wrapf(err, "get fail on `%s`", name)
 	}
 
