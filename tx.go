@@ -71,7 +71,7 @@ func (tx Tx[T]) QueryRow(name string, args Args, fields ...any) error {
 	err = tx.pgxTx.QueryRow(context.Background(), query.Body(), query.Args(args)...).Scan(fields...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return err
+			return nil
 		}
 		return errors.Wrapf(err, "query row fail on `%s`", name)
 	}
