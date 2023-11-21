@@ -24,7 +24,7 @@ func ExecReturning(db Tory, name string, args Args) (*pgconn.CommandTag, error) 
 
 	tag, err := db.pool.Exec(context.Background(), query.Body(), query.Args(args)...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "exec `%s` fail", name)
+		return nil, errors.Wrapf(err, "ExecReturning() `%s` fail", name)
 	}
 
 	return &tag, nil
@@ -41,7 +41,7 @@ func QueryRow(db Tory, name string, args Args, fields ...any) error {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		return errors.Wrapf(err, "query row fail on `%s`", name)
+		return errors.Wrapf(err, "QueryRow() fail on `%s`", name)
 	}
 
 	return nil
@@ -55,7 +55,7 @@ func Select[T any](db Tory, name string, args Args) ([]T, error) {
 
 	result := make([]T, 0)
 	if err := pgxscan.Select(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
-		return nil, errors.Wrapf(err, "select fail on `%s`", name)
+		return nil, errors.Wrapf(err, "Select() fail on `%s`", name)
 	}
 
 	return result, nil
@@ -72,8 +72,22 @@ func Get[T any](db Tory, name string, args Args) (*T, error) {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, errors.Wrapf(err, "get fail on `%s`", name)
+		return nil, errors.Wrapf(err, "Get() fail on `%s`", name)
 	}
 
 	return &result, nil
+}
+
+func Scalar[T any](db Tory, name string, args Args) (T, error) {
+	query, err := db.Query(name)
+	if err != nil {
+		return *new(T), err
+	}
+
+	var result T
+	if err := pgxscan.Get(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
+		return *new(T), errors.Wrapf(err, "Scalar() fail on `%s`", name)
+	}
+
+	return result, nil
 }
