@@ -1,4 +1,4 @@
-[![Build](https://github.com/gamarjoba-team/tory/actions/workflows/go.yml/badge.svg)](https://github.com/gamarjoba-team/tory/actions/workflows/go.yml)
+[![Build](https://github.com/teamin-pro/tory/actions/workflows/go.yml/badge.svg)](https://github.com/teamin-pro/tory/actions/workflows/go.yml)
 ## Tory
 
 Database wrapper and simple migration tool.
@@ -27,8 +27,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/gamarjoba-team/tory"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/teamin-pro/tory"
 )
 
 //go:embed *.sql
