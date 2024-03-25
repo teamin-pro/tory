@@ -3,7 +3,7 @@ module github.com/teamin-pro/tory
 go 1.21
 
 require (
-	github.com/georgysavva/scany/v2 v2.1.0
+	github.com/georgysavva/scany/v2 v2.1.1
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
