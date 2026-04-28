@@ -58,7 +58,7 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 
 		q.rawBody += " " + removeComments(line)
 
-		if strings.HasSuffix(strings.TrimSpace(q.rawBody), ";") {
+		if !insideDollarQuote(q.rawBody) && strings.HasSuffix(strings.TrimSpace(q.rawBody), ";") {
 			q.rawBody = strings.TrimSuffix(normalizeSQL(q.rawBody), ";")
 			q.varsList = parseVars(q.rawBody)
 
@@ -72,6 +72,16 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 	}
 
 	return queries, nil
+}
+
+// insideDollarQuote reports whether the cursor at the end of s lies
+// inside a `$$ ... $$` block. PostgreSQL also allows tagged variants
+// ($tag$ ... $tag$), but plain $$ is enough for the DDL fragments
+// (DO blocks, function bodies) typical embedded queries use. Any odd
+// count of `$$` markers means we're currently inside, so a `;`
+// between them must not terminate the named query early.
+func insideDollarQuote(s string) bool {
+	return strings.Count(s, "$$")%2 == 1
 }
 
 func removeComments(s string) string {

@@ -17,7 +17,7 @@ func TestParse(t *testing.T) {
 	db := New(newPool(t))
 
 	require.NoError(t, db.Load(testFiles))
-	assert.Len(t, db.AllQueries(), 5)
+	assert.Len(t, db.AllQueries(), 7)
 
 	t.Run("remove comments", func(t *testing.T) {
 		q, err := db.Query("test-comments")
@@ -48,6 +48,23 @@ func TestParse(t *testing.T) {
 		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
 		require.NoError(t, err)
 		assert.Equal(t, 3, res)
+	})
+
+	t.Run("dollar-quoted block keeps inner semicolons", func(t *testing.T) {
+		q, err := db.Query("test-do-block")
+		require.NoError(t, err)
+		assert.Equal(t,
+			"do $$ begin create type test_dollar_color as enum ('red', 'green'); "+
+				"exception when duplicate_object then null; end $$",
+			q.Body())
+	})
+
+	t.Run("dollar-quoted block with multiple statements", func(t *testing.T) {
+		q, err := db.Query("test-do-block-multiple-statements")
+		require.NoError(t, err)
+		assert.Equal(t,
+			"do $$ begin perform 1; perform 2; end $$",
+			q.Body())
 	})
 }
 
