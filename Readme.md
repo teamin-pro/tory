@@ -65,3 +65,30 @@ func main() {
 	log.Println("user:", user)
 }
 ```
+
+### Error helpers
+
+`tory` re-exports a few `pgconn`-error tests so callers don't reach into the driver themselves. Use these after a write that may hit a constraint:
+
+- `IsDuplicateKeyValueViolatesUniqueConstraint(err)` — SQLSTATE `23505`. Catch this after an `INSERT` / `UPDATE` that may collide with a unique index, and translate to a domain-level error your callers understand.
+- `IsViolationOfCheckConstraint(err)` — SQLSTATE `23514`. Catch this when a `CHECK` constraint rejects the write.
+
+```go
+_, err := tory.Exec(t, "create-user", tory.Args{"email": email})
+if tory.IsDuplicateKeyValueViolatesUniqueConstraint(err) {
+    return ErrEmailTaken
+}
+if err != nil {
+    return err
+}
+```
+
+### LIKE-pattern helper
+
+`LikeEscape(s)` escapes `%`, `_`, `.`, `*` in a user-supplied substring so it can be spliced into a `LIKE` pattern without letting the user inject wildcards.
+
+```go
+pattern := "%" + tory.LikeEscape(userInput) + "%"
+rows, err := tory.Select[Result](t, "search-by-name", tory.Args{"pattern": pattern})
+```
+
