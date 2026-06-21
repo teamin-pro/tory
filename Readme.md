@@ -66,6 +66,26 @@ func main() {
 }
 ```
 
+### API
+
+**Setup.** `New(pool)` wraps a `*pgxpool.Pool`; `t.Load(fsys)` registers the named queries from the embedded `*.sql` files.
+
+**Reading.**
+
+- `Select[T](t, name, args)` returns `[]T`.
+- `Get[T](t, name, args)` returns `*T`, and `(nil, nil)` when the query matches no row. Check for nil; a missing row is not an error.
+- `Scalar[T](t, name, args)` returns a single `T` (one row, one column).
+- `QueryRow(t, name, args, &field, ...)` scans one row into the given destinations.
+
+**Writing.**
+
+- `Exec(t, name, args)` runs a statement and returns only `error`.
+- `ExecReturning(t, name, args)` also returns the `*pgconn.CommandTag`.
+
+**Transactions.** `Atomic[R, T](t, func(tx Tx[T]) (R, error) { ... })` runs the function in one transaction; return an error to roll back. Inside, use `tx.Exec` / `tx.Get` / `tx.Select` against the same named queries.
+
+**Migrations.** `ApplyPatches(t, opts)` advances the schema through ordered `-- name:` patch blocks and records the version. On a fresh database it baselines to the latest version without running the bodies.
+
 ### Error helpers
 
 `tory` re-exports a few `pgconn`-error tests so callers don't reach into the driver themselves. Use these after a write that may hit a constraint:
