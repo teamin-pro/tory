@@ -1,6 +1,7 @@
 package tory
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"sort"
@@ -29,7 +30,7 @@ type ApplyPatchesOptions struct {
 	OnFinish func(Patch)
 }
 
-func ApplyPatches(db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
+func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
 	patches := make([]Patch, 0)
 	versions := make(map[int]struct{})
 
@@ -68,12 +69,12 @@ func ApplyPatches(db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
 		return nil, err
 	}
 
-	return Atomic(db, func(tx Tx[DbVersion]) (*DbVersion, error) {
-		if err := Exec(db, "tory.create-table-db-version", nil); err != nil {
+	return Atomic(ctx, db, func(tx Tx) (*DbVersion, error) {
+		if err := tx.Exec(ctx, "tory.create-table-db-version", nil); err != nil {
 			return nil, err
 		}
 
-		currentVersion, err := Get[DbVersion](db, "tory.upsert-db-version", Args{
+		currentVersion, err := tx.Get[DbVersion](ctx, "tory.upsert-db-version", Args{
 			"version": latestVersion,
 		})
 		if err != nil {
@@ -92,12 +93,12 @@ func ApplyPatches(db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
 				opts.OnStart(patch)
 			}
 
-			if err := Exec(db, patch.Name, nil); err != nil {
+			if err := tx.Exec(ctx, patch.Name, nil); err != nil {
 				return currentVersion, err
 			}
 
 			currentVersion.Version = patch.Version
-			if err := Exec(db, "tory.update-db-version", Args{"version": currentVersion.Version}); err != nil {
+			if err := tx.Exec(ctx, "tory.update-db-version", Args{"version": currentVersion.Version}); err != nil {
 				return currentVersion, err
 			}
 

@@ -1,11 +1,12 @@
 package tory
 
 import (
+	"cmp"
 	"fmt"
 	"io/fs"
 	"log"
 	"regexp"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -105,11 +106,11 @@ func parseVars(s string) []string {
 		lst = append(lst, name)
 	}
 
-	sort.Slice(lst, func(i, j int) bool {
-		if len(lst[i]) == len(lst[j]) {
-			return lst[i] < lst[j]
+	slices.SortFunc(lst, func(a, b string) int {
+		if len(a) == len(b) {
+			return cmp.Compare(a, b)
 		}
-		return len(lst[i]) > len(lst[j]) // largest first
+		return cmp.Compare(len(b), len(a)) // largest first
 	})
 
 	return lst

@@ -1,10 +1,10 @@
 package tory
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/pkg/errors"
 )
 
 var likeEscape = strings.NewReplacer(
