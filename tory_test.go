@@ -45,9 +45,23 @@ func TestParse(t *testing.T) {
 
 	t.Run("exec", func(t *testing.T) {
 		var res int
-		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		err := db.QueryRow(t.Context(), "test-sum", Args{"x": 1, "y": 2}, &res)
 		require.NoError(t, err)
 		assert.Equal(t, 3, res)
+	})
+
+	t.Run("generic method", func(t *testing.T) {
+		res, err := db.Scalar[int](t.Context(), "test-sum", Args{"x": 2, "y": 3})
+		require.NoError(t, err)
+		assert.Equal(t, 5, res)
+	})
+
+	t.Run("generic transaction method", func(t *testing.T) {
+		res, err := Atomic(t.Context(), db, func(tx Tx) (int, error) {
+			return tx.Scalar[int](t.Context(), "test-sum", Args{"x": 3, "y": 4})
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 7, res)
 	})
 
 	t.Run("dollar-quoted block keeps inner semicolons", func(t *testing.T) {
@@ -76,7 +90,7 @@ func BenchmarkExec(b *testing.B) {
 	var res int
 
 	// warmup
-	err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+	err := db.QueryRow(context.Background(), "test-sum", Args{"x": 1, "y": 2}, &res)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -85,7 +99,7 @@ func BenchmarkExec(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		err := QueryRow(db, "test-sum", Args{"x": 1, "y": 2}, &res)
+		err := db.QueryRow(context.Background(), "test-sum", Args{"x": 1, "y": 2}, &res)
 		if err != nil {
 			b.Fatal(err)
 		}

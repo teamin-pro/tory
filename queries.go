@@ -2,91 +2,114 @@ package tory
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/georgysavva/scany/v2/pgxscan"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/pkg/errors"
 )
 
 type Args map[string]any
 
-func Exec(db Tory, name string, args Args) error {
-	_, err := ExecReturning(db, name, args)
+type runner interface {
+	pgxscan.Querier
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+func (db Tory) Exec(ctx context.Context, name string, args Args) error {
+	_, err := execReturning(ctx, db, db.pool, name, args)
 	return err
 }
 
-func ExecReturning(db Tory, name string, args Args) (*pgconn.CommandTag, error) {
+func (db Tory) ExecReturning(ctx context.Context, name string, args Args) (*pgconn.CommandTag, error) {
+	return execReturning(ctx, db, db.pool, name, args)
+}
+
+func (db Tory) QueryRow(ctx context.Context, name string, args Args, fields ...any) error {
+	return queryRow(ctx, db, db.pool, name, args, fields...)
+}
+
+func (db Tory) Select[T any](ctx context.Context, name string, args Args) ([]T, error) {
+	return selectRows[T](ctx, db, db.pool, name, args)
+}
+
+func (db Tory) Get[T any](ctx context.Context, name string, args Args) (*T, error) {
+	return getRow[T](ctx, db, db.pool, name, args)
+}
+
+func (db Tory) Scalar[T any](ctx context.Context, name string, args Args) (T, error) {
+	return scalar[T](ctx, db, db.pool, name, args)
+}
+
+func execReturning(ctx context.Context, db Tory, r runner, name string, args Args) (*pgconn.CommandTag, error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
-	tag, err := db.pool.Exec(context.Background(), query.Body(), query.Args(args)...)
+	tag, err := r.Exec(ctx, query.Body(), query.Args(args)...)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ExecReturning() `%s` fail", name)
+		return nil, fmt.Errorf("ExecReturning() `%s` fail: %w", name, err)
 	}
 
 	return &tag, nil
 }
 
-func QueryRow(db Tory, name string, args Args, fields ...any) error {
+func queryRow(ctx context.Context, db Tory, r runner, name string, args Args, fields ...any) error {
 	query, err := db.Query(name)
 	if err != nil {
 		return err
 	}
 
-	err = db.pool.QueryRow(context.Background(), query.Body(), query.Args(args)...).Scan(fields...)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		return errors.Wrapf(err, "QueryRow() fail on `%s`", name)
+	if err := r.QueryRow(ctx, query.Body(), query.Args(args)...).Scan(fields...); err != nil {
+		return fmt.Errorf("QueryRow() fail on `%s`: %w", name, err)
 	}
 
 	return nil
 }
 
-func Select[T any](db Tory, name string, args Args) ([]T, error) {
+func selectRows[T any](ctx context.Context, db Tory, r runner, name string, args Args) ([]T, error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
 	result := make([]T, 0)
-	if err := pgxscan.Select(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
-		return nil, errors.Wrapf(err, "Select() fail on `%s`", name)
+	if err := pgxscan.Select(ctx, r, &result, query.Body(), query.Args(args)...); err != nil {
+		return nil, fmt.Errorf("Select() fail on `%s`: %w", name, err)
 	}
 
 	return result, nil
 }
 
-func Get[T any](db Tory, name string, args Args) (*T, error) {
+func getRow[T any](ctx context.Context, db Tory, r runner, name string, args Args) (*T, error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return nil, err
 	}
 
 	var result T
-	if err := pgxscan.Get(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
+	if err := pgxscan.Get(ctx, r, &result, query.Body(), query.Args(args)...); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
-		return nil, errors.Wrapf(err, "Get() fail on `%s`", name)
+		return nil, fmt.Errorf("Get() fail on `%s`: %w", name, err)
 	}
 
 	return &result, nil
 }
 
-func Scalar[T any](db Tory, name string, args Args) (T, error) {
+func scalar[T any](ctx context.Context, db Tory, r runner, name string, args Args) (T, error) {
 	query, err := db.Query(name)
 	if err != nil {
 		return *new(T), err
 	}
 
 	var result T
-	if err := pgxscan.Get(context.Background(), db.pool, &result, query.Body(), query.Args(args)...); err != nil {
-		return *new(T), errors.Wrapf(err, "Scalar() fail on `%s`", name)
+	if err := pgxscan.Get(ctx, r, &result, query.Body(), query.Args(args)...); err != nil {
+		return *new(T), fmt.Errorf("Scalar() fail on `%s`: %w", name, err)
 	}
 
 	return result, nil

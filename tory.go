@@ -2,10 +2,11 @@ package tory
 
 import (
 	"embed"
-	"sort"
+	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/pkg/errors"
 )
 
 // New creates a new Tory containing the given pgxpool.Pool and queries collection
@@ -25,13 +26,13 @@ type Tory struct {
 func (t Tory) Load(files embed.FS) error {
 	dir, err := files.ReadDir(".")
 	if err != nil {
-		return errors.Wrapf(err, "read sql dir fail")
+		return fmt.Errorf("read SQL directory: %w", err)
 	}
 
 	for _, f := range dir {
 		fileQueries, err := readQueries(files, f.Name())
 		if err != nil {
-			return errors.Wrapf(err, "read sql file %s fail:", f.Name())
+			return fmt.Errorf("read SQL file %s: %w", f.Name(), err)
 		}
 		for k, v := range fileQueries {
 			t.queries[k] = v
@@ -45,7 +46,7 @@ func (t Tory) Load(files embed.FS) error {
 func (t Tory) Query(name string) (ParsedQuery, error) {
 	query := t.queries[name]
 	if query.rawBody == "" {
-		return query, errors.Errorf("query not found: `%s`", name)
+		return query, fmt.Errorf("query not found: `%s`", name)
 	}
 	return query, nil
 }
@@ -56,8 +57,8 @@ func (t Tory) AllQueries() []ParsedQuery {
 	for _, v := range t.queries {
 		res = append(res, v)
 	}
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].name < res[j].name
+	slices.SortFunc(res, func(a, b ParsedQuery) int {
+		return strings.Compare(a.name, b.name)
 	})
 	return res
 }
