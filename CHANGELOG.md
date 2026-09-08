@@ -19,6 +19,14 @@ release of the current API.
   `ApplyPatches` returns, so code that names it changes by one letter; code that lets the type be
   inferred — `v, err := tory.ApplyPatches(ctx, t, opts)` — is unaffected.
 
+### Fixed
+
+- A query whose body never reaches a `;` is an error from `Load` now. It used to be dropped in
+  silence and to surface much later, on the first call, as `query not found`.
+- Quoted text is left to the database. `'note:hello'` no longer binds a variable called `hello`,
+  `'a--b'` no longer loses its tail to comment stripping, `'a;b'` no longer ends the query, and an
+  apostrophe in a comment no longer swallows everything up to the next quote.
+
 ## [2.1.0] - 2026-09-08
 
 ### Added
