@@ -1,10 +1,11 @@
 package tory
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -59,8 +60,8 @@ func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVe
 		return nil, fmt.Errorf("no patches found")
 	}
 
-	sort.Slice(patches, func(i, j int) bool {
-		return patches[i].Version < patches[j].Version
+	slices.SortFunc(patches, func(a, b Patch) int {
+		return cmp.Compare(a.Version, b.Version)
 	})
 
 	latestVersion := patches[len(patches)-1].Version
@@ -69,7 +70,7 @@ func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVe
 		return nil, err
 	}
 
-	return Atomic(ctx, db, func(tx Tx) (*DbVersion, error) {
+	return db.Atomic(ctx, func(tx Tx) (*DbVersion, error) {
 		if err := tx.Exec(ctx, "tory.create-table-db-version", nil); err != nil {
 			return nil, err
 		}
@@ -112,12 +113,12 @@ func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVe
 }
 
 func parseVersion(str string) int {
-	bits := strings.SplitN(str, "-", 2)
-	if len(bits) != 2 {
+	number, _, found := strings.Cut(str, "-")
+	if !found {
 		return -1
 	}
 
-	version, err := strconv.ParseInt(strings.TrimLeft(bits[0], "0"), 10, 64)
+	version, err := strconv.ParseInt(strings.TrimLeft(number, "0"), 10, 64)
 	if err != nil {
 		return -1
 	}

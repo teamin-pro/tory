@@ -1,4 +1,4 @@
-module github.com/teamin-pro/tory/v2
+module github.com/botforge-pro/tory/v2
 
 go 1.27
 

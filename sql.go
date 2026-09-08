@@ -44,7 +44,7 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 	queries := make(map[string]ParsedQuery)
 
 	var q ParsedQuery
-	for _, line := range strings.Split(string(content), "\n") {
+	for line := range strings.SplitSeq(string(content), "\n") {
 		bits := strings.Fields(line)
 		if len(bits) == 3 && bits[0] == "--" && bits[1] == "name:" {
 			q = ParsedQuery{
@@ -75,18 +75,17 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 	return queries, nil
 }
 
-// insideDollarQuote reports whether the cursor at the end of s lies
-// inside a `$$ ... $$` block. PostgreSQL also allows tagged variants
-// ($tag$ ... $tag$), but plain $$ is enough for the DDL fragments
-// (DO blocks, function bodies) typical embedded queries use. Any odd
-// count of `$$` markers means we're currently inside, so a `;`
-// between them must not terminate the named query early.
+// PostgreSQL also allows tagged dollar quotes ($tag$ ... $tag$), which this
+// deliberately does not track: plain $$ covers the DDL fragments (DO blocks,
+// function bodies) that embedded queries use, and a tagged block would need a
+// parser rather than a counter.
 func insideDollarQuote(s string) bool {
 	return strings.Count(s, "$$")%2 == 1
 }
 
 func removeComments(s string) string {
-	return strings.SplitN(s, "--", 2)[0]
+	body, _, _ := strings.Cut(s, "--")
+	return body
 }
 
 func normalizeSQL(s string) string {

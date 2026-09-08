@@ -17,8 +17,6 @@ SELECT 1;
 SELECT :x::int + :y::int;
 
 -- name: test-do-block
--- A dollar-quoted DO statement contains semicolons of its own; the
--- query parser must not treat them as the end of the named query.
 do $$ begin
     create type test_dollar_color as enum ('red', 'green');
 exception when duplicate_object then null; end $$;
@@ -28,3 +26,12 @@ do $$ begin
     perform 1;
     perform 2;
 end $$;
+
+-- name: test-create-temp-table
+create temporary table test_savepoint (n int) on commit drop;
+
+-- name: test-insert
+insert into test_savepoint (n) values (:n);
+
+-- name: test-count
+select count(*) from test_savepoint;

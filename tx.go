@@ -8,8 +8,40 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func Atomic[R any](ctx context.Context, db Tory, fn func(Tx) (R, error)) (resp R, err error) {
-	err = pgx.BeginFunc(ctx, db.pool, func(pgxTx pgx.Tx) error {
+// Atomic runs fn inside one transaction and commits it when fn returns no
+// error; any error rolls the whole transaction back.
+func (t Tory) Atomic[R any](ctx context.Context, fn func(Tx) (R, error)) (R, error) {
+	return atomic(ctx, t, t.pool, fn)
+}
+
+// Atomic runs fn inside a nested transaction, which PostgreSQL implements as a
+// savepoint: an error from fn rolls the transaction back to the point where the
+// nested block began and leaves the outer transaction open. The rollback goes by
+// time rather than by handle, so write through the Tx passed to fn and not
+// through the outer one, and let fn return its error rather than swallow it: a
+// nested block that ends cleanly after a failed statement cannot release its
+// savepoint. A cancelled context or a lost connection is not contained by a
+// savepoint and ends the outer transaction as well.
+func (tx Tx) Atomic[R any](ctx context.Context, fn func(Tx) (R, error)) (R, error) {
+	resp, err := atomic(ctx, tx.db, tx.pgxTx, fn)
+	if err != nil {
+		return resp, fmt.Errorf("nested %w", err)
+	}
+
+	return resp, nil
+}
+
+// Deprecated: use [Tory.Atomic], which needs no explicit db argument.
+func Atomic[R any](ctx context.Context, db Tory, fn func(Tx) (R, error)) (R, error) {
+	return db.Atomic(ctx, fn)
+}
+
+type beginner interface {
+	Begin(context.Context) (pgx.Tx, error)
+}
+
+func atomic[R any](ctx context.Context, db Tory, b beginner, fn func(Tx) (R, error)) (resp R, err error) {
+	err = pgx.BeginFunc(ctx, b, func(pgxTx pgx.Tx) error {
 		resp, err = fn(Tx{db: db, pgxTx: pgxTx})
 		return err
 	})

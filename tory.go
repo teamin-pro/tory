@@ -3,6 +3,7 @@ package tory
 import (
 	"embed"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -34,9 +35,7 @@ func (t Tory) Load(files embed.FS) error {
 		if err != nil {
 			return fmt.Errorf("read SQL file %s: %w", f.Name(), err)
 		}
-		for k, v := range fileQueries {
-			t.queries[k] = v
-		}
+		maps.Copy(t.queries, fileQueries)
 	}
 
 	return nil
