@@ -14,7 +14,7 @@ import (
 //go:embed patches.sql
 var sqlFiles embed.FS
 
-type DbVersion struct {
+type DBVersion struct {
 	Version   int       `db:"version"`
 	CreatedAt time.Time `db:"created_at"`
 }
@@ -31,7 +31,7 @@ type ApplyPatchesOptions struct {
 	OnFinish func(Patch)
 }
 
-func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVersion, error) {
+func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DBVersion, error) {
 	patches := make([]Patch, 0)
 	versions := make(map[int]struct{})
 
@@ -70,12 +70,12 @@ func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DbVe
 		return nil, err
 	}
 
-	return db.Atomic(ctx, func(tx Tx) (*DbVersion, error) {
+	return db.Atomic(ctx, func(tx Tx) (*DBVersion, error) {
 		if err := tx.Exec(ctx, "tory.create-table-db-version", nil); err != nil {
 			return nil, err
 		}
 
-		currentVersion, err := tx.Get[DbVersion](ctx, "tory.upsert-db-version", Args{
+		currentVersion, err := tx.Get[DBVersion](ctx, "tory.upsert-db-version", Args{
 			"version": latestVersion,
 		})
 		if err != nil {

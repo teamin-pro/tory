@@ -18,29 +18,29 @@ type runner interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }
 
-func (db Tory) Exec(ctx context.Context, name string, args Args) error {
-	_, err := execReturning(ctx, db, db.pool, name, args)
+func (t Tory) Exec(ctx context.Context, name string, args Args) error {
+	_, err := execReturning(ctx, t, t.pool, name, args)
 	return err
 }
 
-func (db Tory) ExecReturning(ctx context.Context, name string, args Args) (*pgconn.CommandTag, error) {
-	return execReturning(ctx, db, db.pool, name, args)
+func (t Tory) ExecReturning(ctx context.Context, name string, args Args) (*pgconn.CommandTag, error) {
+	return execReturning(ctx, t, t.pool, name, args)
 }
 
-func (db Tory) QueryRow(ctx context.Context, name string, args Args, fields ...any) error {
-	return queryRow(ctx, db, db.pool, name, args, fields...)
+func (t Tory) QueryRow(ctx context.Context, name string, args Args, fields ...any) error {
+	return queryRow(ctx, t, t.pool, name, args, fields...)
 }
 
-func (db Tory) Select[T any](ctx context.Context, name string, args Args) ([]T, error) {
-	return selectRows[T](ctx, db, db.pool, name, args)
+func (t Tory) Select[T any](ctx context.Context, name string, args Args) ([]T, error) {
+	return selectRows[T](ctx, t, t.pool, name, args)
 }
 
-func (db Tory) Get[T any](ctx context.Context, name string, args Args) (*T, error) {
-	return getRow[T](ctx, db, db.pool, name, args)
+func (t Tory) Get[T any](ctx context.Context, name string, args Args) (*T, error) {
+	return getRow[T](ctx, t, t.pool, name, args)
 }
 
-func (db Tory) Scalar[T any](ctx context.Context, name string, args Args) (T, error) {
-	return scalar[T](ctx, db, db.pool, name, args)
+func (t Tory) Scalar[T any](ctx context.Context, name string, args Args) (T, error) {
+	return scalar[T](ctx, t, t.pool, name, args)
 }
 
 func execReturning(ctx context.Context, db Tory, r runner, name string, args Args) (*pgconn.CommandTag, error) {

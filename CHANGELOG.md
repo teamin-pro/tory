@@ -5,9 +5,19 @@ as named queries, Go calls them by name and scans rows into its own types. The
 [Readme](https://github.com/botforge-pro/tory#readme) documents the whole API; this file records what
 changed between releases.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project follows
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html). Entries start at 2.0.0, the first release
-of the current API.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html) with one caveat while the library is
+young: a rename that no known caller depends on may land in a minor release instead of waiting for a
+major one. Anything of that kind is spelled out under Changed. Entries start at 2.0.0, the first
+release of the current API.
+
+## [Unreleased]
+
+### Changed
+
+- `DbVersion` is now `DBVersion`, the spelling Go uses for initialisms. It is the type
+  `ApplyPatches` returns, so code that names it changes by one letter; code that lets the type be
+  inferred — `v, err := tory.ApplyPatches(ctx, t, opts)` — is unaffected.
 
 ## [2.1.0] - 2026-09-08
 

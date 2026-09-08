@@ -1,3 +1,7 @@
+// Package tory runs named SQL queries against PostgreSQL. Queries live in .sql
+// files next to the code, marked up with `-- name:` lines; Load parses them and
+// rewrites named arguments into the positional ones pgx expects, so callers ask
+// for a query by name and scan the rows straight into their own types.
 package tory
 
 import (
