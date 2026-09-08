@@ -31,6 +31,11 @@ type ApplyPatchesOptions struct {
 	OnFinish func(Patch)
 }
 
+// ApplyPatches advances the schema through the patches loaded under
+// opts.Prefix, in the order of the number each name carries, and records the
+// version reached. A database that has never been patched is baselined to the
+// latest version without running the bodies, so the schema a fresh database is
+// created with is taken to be current. Everything runs in one transaction.
 func ApplyPatches(ctx context.Context, db Tory, opts ApplyPatchesOptions) (*DBVersion, error) {
 	patches := make([]Patch, 0)
 	versions := make(map[int]struct{})

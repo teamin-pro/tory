@@ -21,7 +21,11 @@ func (t Tory) Atomic[R any](ctx context.Context, fn func(Tx) (R, error)) (R, err
 // through the outer one, and let fn return its error rather than swallow it: a
 // nested block that ends cleanly after a failed statement cannot release its
 // savepoint. A cancelled context or a lost connection is not contained by a
-// savepoint and ends the outer transaction as well.
+// savepoint and ends the outer transaction as well, so tell the errors you
+// expect from the data apart from the rest instead of skipping whatever fails.
+//
+// Nesting costs two round trips per block, and a block that writes also takes a
+// subtransaction id, of which a backend caches 64: nest per batch, not per row.
 func (tx Tx) Atomic[R any](ctx context.Context, fn func(Tx) (R, error)) (R, error) {
 	resp, err := atomic(ctx, tx.db, tx.pgxTx, fn)
 	if err != nil {
@@ -52,6 +56,8 @@ func atomic[R any](ctx context.Context, db Tory, b beginner, fn func(Tx) (R, err
 	return resp, nil
 }
 
+// Tx is a transaction in progress. It carries the same query methods as [Tory],
+// plus [Tx.Query] for rows a scan function turns into values itself.
 type Tx struct {
 	db    Tory
 	pgxTx pgx.Tx
@@ -70,6 +76,8 @@ func (tx Tx) QueryRow(ctx context.Context, name string, args Args, fields ...any
 	return queryRow(ctx, tx.db, tx.pgxTx, name, args, fields...)
 }
 
+// Query runs the named query and builds a slice by calling scanRow for each
+// row, for results that do not map onto a struct on their own.
 func (tx Tx) Query[T any](ctx context.Context, name string, args Args, scanRow func(pgx.Rows) (T, error)) ([]T, error) {
 	query, err := tx.db.Query(name)
 	if err != nil {

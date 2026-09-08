@@ -22,6 +22,8 @@ func New(pool *pgxpool.Pool) Tory {
 	}
 }
 
+// Tory is a pool with a collection of named queries loaded onto it. It is safe
+// to copy: the pool and the collection are shared.
 type Tory struct {
 	pool    *pgxpool.Pool
 	queries map[string]ParsedQuery
