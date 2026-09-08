@@ -5,13 +5,12 @@ as named queries, Go calls them by name and scans rows into its own types. The
 [Readme](https://github.com/botforge-pro/tory#readme) documents the whole API; this file records what
 changed between releases.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
-[Semantic Versioning](https://semver.org/spec/v2.0.0.html) with one caveat while the library is
-young: a rename that no known caller depends on may land in a minor release instead of waiting for a
-major one. Anything of that kind is spelled out under Changed. Entries start at 2.0.0, the first
-release of the current API.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). While the library has
+few readers, a minor release can still ask something of you: a name to change, an import to move, a
+query to re-check. What a release asks is written in its own entry, so read the entry rather than
+judge by the number. Entries start at 2.0.0, the first release of the current API.
 
-## [Unreleased]
+## [2.2.0] - 2026-09-08
 
 ### Changed
 
@@ -23,9 +22,17 @@ release of the current API.
 
 - A query whose body never reaches a `;` is an error from `Load` now. It used to be dropped in
   silence and to surface much later, on the first call, as `query not found`.
-- Quoted text is left to the database. `'note:hello'` no longer binds a variable called `hello`,
-  `'a--b'` no longer loses its tail to comment stripping, `'a;b'` no longer ends the query, and an
-  apostrophe in a comment no longer swallows everything up to the next quote.
+- Quoted text is left to the database: `'strings'` with their doubled-quote escape, `"identifiers"`
+  and `$$` blocks alike. `'note:hello'` no longer binds a variable called `hello`, `'a--b'` no longer
+  loses its tail to comment stripping, `'a;b'` no longer ends the query, and an apostrophe in a
+  comment no longer swallows everything up to the next quote. A `$$` block used to be spared only
+  its semicolons, while `--` and `:name` inside it were still rewritten; now the whole block is left
+  alone, so a `DO` body that carries a comment or a colon reaches the server as written.
+
+  Worth a look after the upgrade: a query that leaned on the old behaviour now behaves differently,
+  and one shape fails outright. A file whose last query ended at a `;` inside a literal used to load
+  as a truncated query and now reaches the end without a terminator, so `Load` reports it and the
+  program stops at startup instead of failing later against the server.
 
 ## [2.1.0] - 2026-09-08
 
@@ -34,7 +41,8 @@ release of the current API.
 - `t.Atomic(ctx, fn)` — a transaction as a method on the connection, next to the query methods that
   already live there.
 - `tx.Atomic(ctx, inner)` nests a transaction inside a running one, which PostgreSQL runs as a
-  savepoint: a batch rejected by a constraint no longer costs the whole transaction. Both forms take
+  savepoint: a batch the server rejects no longer costs the whole transaction, while a lost
+  connection or a cancelled context still does. Both forms take
   the result type from the function they run — `Atomic[R]` with `R` inferred, which is why neither
   call spells a type argument, and a nested block that produces nothing returns `any` and `nil`.
 
@@ -71,13 +79,13 @@ release of the current API.
   import is the way to get them. As a repository, the move carried the tags along, which is why the
   links at the bottom of this file point at the new home for 2.0.0 as well.
 
-  Versions are counted per module, and the host path is not part of that count, which is why moving
-  it lands in a minor release with the `/v2` suffix untouched.
+  The module suffix stays `/v2`: the major version of the module did not change, only the host it
+  is fetched from.
 
 ### Deprecated
 
-- `tory.Atomic(ctx, t, fn)` in favour of `t.Atomic(ctx, fn)`. The old form still works and goes away
-  in the next major release.
+- `tory.Atomic(ctx, t, fn)` in favour of `t.Atomic(ctx, fn)`. The old form keeps working through
+  every 2.x release and goes away in 3.0.0.
 
 ## [2.0.0] - 2026-09-07
 
@@ -126,5 +134,6 @@ import "github.com/teamin-pro/tory/v2" // 2.0.0; see 2.1.0 above for where it li
   `ExecReturning`. Each is now a method of the same name on the connection and on the transaction,
   so the replacement is mechanical.
 
+[2.2.0]: https://github.com/botforge-pro/tory/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/botforge-pro/tory/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/botforge-pro/tory/releases/tag/v2.0.0
