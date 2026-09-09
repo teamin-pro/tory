@@ -2,7 +2,8 @@
 
 Tory is a thin PostgreSQL layer over [pgx](https://github.com/jackc/pgx): SQL lives in `.sql` files
 as named queries, Go calls them by name and scans rows into its own types. The
-[Readme](https://github.com/botforge-pro/tory#readme) documents the whole API; this file records what
+[package documentation](https://pkg.go.dev/github.com/botforge-pro/tory/v2) carries the whole API and
+the [Readme](https://github.com/botforge-pro/tory#readme) introduces it; this file records what
 changed between releases.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). While the library has
@@ -47,8 +48,9 @@ judge by the number. Entries start at 2.0.0, the first release of the current AP
   call spells a type argument, and a nested block that produces nothing returns `any` and `nil`.
 
   What a savepoint does and does not hold — a dead connection or a cancelled context is not one of
-  the things it holds — and what nesting costs per block is written up under Transactions in the
-  [Readme](https://github.com/botforge-pro/tory#readme). Read it before building recovery on this.
+  the things it holds — and what nesting costs per block is written up in the
+  [package documentation](https://pkg.go.dev/github.com/botforge-pro/tory/v2). Read it before
+  building recovery on this.
 
   ```go
   report, err := t.Atomic(ctx, func(tx tory.Tx) (*Report, error) {

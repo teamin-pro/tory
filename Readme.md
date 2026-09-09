@@ -6,6 +6,20 @@ SQL lives in `.sql` files, Go calls it by name. A thin layer over
 [pgx](https://github.com/jackc/pgx) for PostgreSQL: named queries, named arguments, rows scanned
 into your own types, transactions that nest. Inspired by [dotsql](https://github.com/qustavo/dotsql).
 
+### Install
+
+```
+go get github.com/botforge-pro/tory/v2
+```
+
+```go
+import "github.com/botforge-pro/tory/v2"
+```
+
+The API is built on methods that take type parameters, so it needs Go 1.27 or newer.
+
+### Queries
+
 **queries.sql**
 
 ```sql
@@ -48,15 +62,17 @@ func main() {
 		log.Println("no such user")
 	}
 
-	locals, err := t.Select[User](ctx, "list-users-by-city", tory.Args{"city": "Belgrade"})
+	users, err := t.Select[User](ctx, "list-users-by-city", tory.Args{"city": "Belgrade"})
 	if err != nil {
 		panic(err)
 	}
-	log.Println("users:", locals)
+	log.Println("users:", users)
 }
 ```
 
-Transactions are a method, and they nest — PostgreSQL runs a nested one as a savepoint, so a batch
+### Transactions
+
+Transactions are a method, and they nest: PostgreSQL runs a nested one as a savepoint, so a batch
 the server rejects costs that batch rather than the whole import:
 
 ```go
@@ -79,7 +95,54 @@ report, err := t.Atomic(ctx, func(tx tory.Tx) (*Report, error) {
 })
 ```
 
-`ApplyPatches` moves the schema forward through numbered patches and remembers where it got to.
+### Migrations
+
+Migrations here are not a stack replayed from zero. The current shape is yours to declare and
+yours to apply: `create table ... if not exists` that your own start-up runs on every boot.
+`ApplyPatches` never touches those. It carries a database created against an older shape up to
+the current one, and remembers where it got to.
+
+```go
+//go:embed *.sql
+var sqlFiles embed.FS
+
+if err := t.Load(sqlFiles); err != nil {
+	panic(err)
+}
+
+version, err := tory.ApplyPatches(ctx, t, tory.ApplyPatchesOptions{
+	Prefix:  "myapp-patches.",
+	OnStart: func(p tory.Patch) { log.Println("applying", p.Name) },
+})
+if err != nil {
+	panic(err)
+}
+log.Println("schema at version", version.Version)
+```
+
+Patches are ordinary named queries, loaded like any other and picked out by `Prefix`. Everything
+under that prefix has to parse as a patch, so give patches a prefix of their own. `Load` reads the
+root of the embed and no deeper, so every `.sql` file it should see sits flat in it; a separate
+`patches.sql` beside the query files is the usual shape.
+
+A patch is identified by the number its name carries after the prefix, so
+`myapp-patches.0007-add-language` is version 7. The number is the only part recorded, which leaves
+the words after it free to say what the patch is for: renaming one cannot re-run it. Renumbering
+can, and a number is spent from the moment it reaches a live database. The number needs a hyphen
+after it, leading zeros are trimmed, and two names that trim to the same number stop the run
+rather than let one of them go quietly unapplied.
+
+A database with no rows in `db_version`, the table `ApplyPatches` creates for itself, is baselined
+to the latest version without a single body running. That is what lets a fresh install start
+current, and it is the sharp edge of the mechanism: a populated database that predates tory is
+declared current too, with every patch unrun. Adopt tory on one of those deliberately.
+
+Everything runs in one transaction. A patch that fails leaves the database as it was and the run
+repeats from the top, so no body is ever applied twice on top of itself. What a body does have to
+survive is meeting its own change already made: a table created today from your declared schema
+already carries the column that patch 7 adds. Write `add column if not exists`.
+
+### Elsewhere
 
 Everything else — the full method set, what a savepoint does and does not hold, the error helpers —
 is in the [package documentation](https://pkg.go.dev/github.com/botforge-pro/tory/v2). Changes
