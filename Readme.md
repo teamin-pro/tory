@@ -70,6 +70,11 @@ func main() {
 }
 ```
 
+No rows is not one answer here. `Get` returns `(nil, nil)`, so a row that does not exist is read
+from the pointer and never from the error: `errors.Is(err, pgx.ErrNoRows)` after it is a branch that
+cannot run, and code that leans on it walks into the nil instead. `Select` gives an empty slice.
+`Scalar` and `QueryRow` do report it as an error, having nothing to hand back otherwise.
+
 ### Transactions
 
 Transactions are a method, and they nest: PostgreSQL runs a nested one as a savepoint, so a batch
