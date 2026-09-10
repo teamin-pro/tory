@@ -6,10 +6,15 @@ as named queries, Go calls them by name and scans rows into its own types. The
 the [Readme](https://github.com/botforge-pro/tory#readme) introduces it; this file records what
 changed between releases.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). While the library has
-few readers, a minor release can still ask something of you: a name to change, an import to move, a
-query to re-check. What a release asks is written in its own entry, so read the entry rather than
-judge by the number. Entries start at 2.0.0, the first release of the current API.
+Two names run through these entries. `Load` reads the `.sql` files at start-up and is what accepts
+or refuses them, so a release that changes what it accepts stops the program before anything else
+happens. `ApplyPatches` is the migration side: named queries under a prefix, each carrying a number,
+applied once and recorded, described in the [Readme](https://github.com/botforge-pro/tory#readme).
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). A minor release here
+can still ask something of you, up to and including reading your migrations against your live
+schema. What a release asks is written in its own entry, so read the entry rather than judge by the
+number. Entries start at 2.0.0, the first release of the current API.
 
 ## [2.3.0] - 2026-09-10
 
@@ -35,15 +40,27 @@ judge by the number. Entries start at 2.0.0, the first release of the current AP
   query `add-provider-columns` in patches.sql holds 3 statements: give each one its own `-- name:`
   ```
 
-  and nothing loads until the block is split. Give each statement its own name.
+  `Load` returns on the first one it meets rather than listing them, so a file with several offending
+  blocks takes several rounds.
 
-  A patch that has already been applied is the case to think about, because its number is recorded
-  and its body never runs again on any database that recorded it. Splitting it in place would hand
-  new numbers to statements every existing database already ran, so those databases skip them while
-  a fresh one runs them: two schemas from one file. Delete the block instead, or reduce it to its
-  first statement — the recorded number stays spent either way, so number the next patch above the
-  highest version any live database records, which is not always the highest number left in the
-  file.
+  What to do with a block depends on whether it is a patch, and on whether it has been applied:
+
+  - **An ordinary query, or a patch no database has run yet.** Split it, giving each statement its
+    own name, and call them in order.
+  - **A patch already applied somewhere.** Do not split it. Its number is recorded and its body
+    never runs again on any database that recorded it, so new numbers would be handed to statements
+    every existing database already ran: those databases skip them while a fresh one runs them, and
+    one file grows two schemas. Delete the block, or reduce it to its first statement.
+
+    Deleting is safe only where a fresh database arrives at the same schema without it — with
+    `create table … if not exists` in your declared schema already carrying the columns that patch
+    added, which is the usual arrangement. Where it does not, the statements still have to reach a
+    fresh database, and a corrective patch at the end of the file is the way: write it so it is
+    right against every state you have, the databases that ran the whole body, the ones that ran
+    part of it, and the ones that ran none, which `if not exists` and `if exists` usually give you.
+
+    The recorded number stays spent whichever way you go, so number the next patch above the highest
+    version any live database records, which is not always the highest number left in the file.
 
   Statements inside a `$$` block are untouched, as they were: their semicolons are not code, so a
   `do $$ … end $$;` body is one statement however much it holds. Wrapping several statements in one
@@ -55,15 +72,27 @@ judge by the number. Entries start at 2.0.0, the first release of the current AP
 
   What that leaves behind: a patch applied while 2.2.0 was in use is recorded as applied with only
   its first statement run, and `ApplyPatches` will not run it again. This release stops the next one
-  from happening and repairs no database. If you applied patches under 2.2.0 — between 8 and 10
-  September 2026 — read those bodies against the schema they were meant to produce, statement by
-  statement past the first. A database whose patches all predate 2.2.0 is untouched by this, and so
-  is one whose multi-statement bodies were all `do $$ … end $$;`.
+  from happening and repairs nothing already recorded, because what the missing statements were
+  meant to do is not something the library can know.
+
+  Whether it reached you turns on which version you built against when each patch first ran, not on
+  the date: 2.1.0 and 2.2.0 were released the same day, and under 2.1.0 the whole body ran. The
+  question to answer is "did any patch first run against 2.2.0", and your lockfile history answers
+  it where the release dates cannot. Two cases are clear of it whatever the answer: a database whose
+  patches all predate 2.2.0, and one whose multi-statement bodies were all `do $$ … end $$;`.
+
+  Where a patch did run truncated, the schema tells you: read the statements after the first and ask
+  the database whether each landed. Repair with a new patch at the end of the file, written to be
+  right on a database that ran the whole body as well as one that ran part of it.
 
 - A statement left without its `;` before the next `-- name:` is now reported the way one at the end
   of a file already was. It used to go the way of everything else after the first `;`.
 
 ## [2.2.0] - 2026-09-08
+
+> This release also truncated a `-- name:` block at its first statement without saying so, which the
+> entry below did not notice and 2.3.0 describes. If you applied migrations while running it, read
+> 2.3.0 before anything here.
 
 ### Changed
 
