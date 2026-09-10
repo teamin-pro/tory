@@ -50,7 +50,11 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 			end := lineEnd(src, i)
 			if next, ok := queryName(src[i:end]); ok {
 				if name != "" {
-					return nil, unterminated(fname, name)
+					query, err := closeQuery(fname, name, body.String())
+					if err != nil {
+						return nil, err
+					}
+					queries[name] = query
 				}
 				name, body = next, strings.Builder{}
 			}
@@ -63,22 +67,50 @@ func readQueries(files fs.ReadFileFS, fname string) (map[string]ParsedQuery, err
 			continue
 		}
 
-		if src[i] == ';' && spans[i] == spanCode {
-			queries[name] = newParsedQuery(name, body.String())
-			name = ""
-			i++
-			continue
-		}
-
 		body.WriteByte(src[i])
 		i++
 	}
 
 	if name != "" {
-		return nil, unterminated(fname, name)
+		query, err := closeQuery(fname, name, body.String())
+		if err != nil {
+			return nil, err
+		}
+		queries[name] = query
 	}
 
 	return queries, nil
+}
+
+// closeQuery turns the bytes written under one `-- name:` into a query. The
+// block runs to the next name rather than to the first `;`, so a second
+// statement is seen and reported rather than dropped in silence.
+//
+// One name carries one statement. PostgreSQL will run several in a body that
+// binds nothing, and refuses the same body the moment it takes an argument
+// ("cannot insert multiple commands into a prepared statement"), so a block
+// that works today stops working when a `:name` is added to it.
+func closeQuery(fname, name, written string) (ParsedQuery, error) {
+	body := strings.TrimRight(written, " \t\r\n")
+	spans := classify(body)
+	if body == "" || body[len(body)-1] != ';' || spans[len(body)-1] != spanCode {
+		return ParsedQuery{}, unterminated(fname, name)
+	}
+	body, spans = body[:len(body)-1], spans[:len(body)-1]
+
+	statements := 1
+	for i := range body {
+		if body[i] == ';' && spans[i] == spanCode {
+			statements++
+		}
+	}
+	if statements > 1 {
+		return ParsedQuery{}, fmt.Errorf(
+			"query `%s` in %s holds %d statements: give each one its own `-- name:`",
+			name, fname, statements)
+	}
+
+	return newParsedQuery(name, body), nil
 }
 
 func unterminated(fname, name string) error {

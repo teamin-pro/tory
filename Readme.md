@@ -70,6 +70,11 @@ func main() {
 }
 ```
 
+One name carries one statement, and `Load` refuses a block that holds a second. PostgreSQL will run
+several in a body that binds nothing and refuse the same body once it takes an argument, so a block
+of two works only until somebody adds a `:name` to it. A `do $$ … end $$;` body is one statement
+however many it holds inside.
+
 No rows is not one answer here. `Get` returns `(nil, nil)`, so a row that does not exist is read
 from the pointer and never from the error: `errors.Is(err, pgx.ErrNoRows)` after it is a branch that
 cannot run, and code that leans on it walks into the nil instead. `Select` gives an empty slice.

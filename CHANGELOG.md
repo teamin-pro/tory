@@ -11,6 +11,29 @@ few readers, a minor release can still ask something of you: a name to change, a
 query to re-check. What a release asks is written in its own entry, so read the entry rather than
 judge by the number. Entries start at 2.0.0, the first release of the current API.
 
+## [2.3.0] - 2026-09-10
+
+### Changed
+
+- One `-- name:` carries one statement, and a block holding a second is an error from `Load` naming
+  the query and the count. 2.2.0 ended a query at the first `;` and dropped the rest of the block in
+  silence, so a body written as three statements reached the server as one and nothing said so;
+  2.1.0 and earlier ran all of them. Neither is right: PostgreSQL runs several statements in a body
+  that binds nothing and refuses the same body the moment it takes an argument — measured, `cannot
+  insert multiple commands into a prepared statement (SQLSTATE 42601)` — so a block that works today
+  stops working when a `:name` is added to it.
+
+  Worth a look after the upgrade: a file that loaded before may now be refused at start-up. Split
+  the block, giving each statement its own name. A patch already applied is the awkward case, since
+  its number is spent and its body is dead on every database that recorded it; splitting it changes
+  nothing on those, and it is the numbers of the new names to think about.
+
+  Statements inside a `$$` block are untouched, as they were: their semicolons are not code, so a
+  `do $$ … end $$;` body is one statement however much it holds.
+
+- A statement left without its `;` before the next `-- name:` is now reported the way one at the end
+  of a file already was. It used to go the way of everything else after the first `;`.
+
 ## [2.2.0] - 2026-09-08
 
 ### Changed
@@ -136,6 +159,7 @@ import "github.com/teamin-pro/tory/v2" // 2.0.0; see 2.1.0 above for where it li
   `ExecReturning`. Each is now a method of the same name on the connection and on the transaction,
   so the replacement is mechanical.
 
+[2.3.0]: https://github.com/botforge-pro/tory/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/botforge-pro/tory/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/botforge-pro/tory/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/botforge-pro/tory/releases/tag/v2.0.0
