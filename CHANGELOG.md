@@ -23,13 +23,42 @@ judge by the number. Entries start at 2.0.0, the first release of the current AP
   insert multiple commands into a prepared statement (SQLSTATE 42601)` — so a block that works today
   stops working when a `:name` is added to it.
 
-  Worth a look after the upgrade: a file that loaded before may now be refused at start-up. Split
-  the block, giving each statement its own name. A patch already applied is the awkward case, since
-  its number is spent and its body is dead on every database that recorded it; splitting it changes
-  nothing on those, and it is the numbers of the new names to think about.
+  Running them in order instead was the other way out, and it is the one that cannot be relied on:
+  the same body starts failing the day somebody adds an argument to it, and it fails against the
+  server rather than at start-up. Refusing at `Load` puts the whole class in one place, before
+  anything runs.
+
+  Check before you upgrade rather than after: a `-- name:` block with a second `;` outside a `$$`
+  body is one this release refuses. If you upgrade first, the program stops at start-up with
+
+  ```
+  query `add-provider-columns` in patches.sql holds 3 statements: give each one its own `-- name:`
+  ```
+
+  and nothing loads until the block is split. Give each statement its own name.
+
+  A patch that has already been applied is the case to think about, because its number is recorded
+  and its body never runs again on any database that recorded it. Splitting it in place would hand
+  new numbers to statements every existing database already ran, so those databases skip them while
+  a fresh one runs them: two schemas from one file. Delete the block instead, or reduce it to its
+  first statement — the recorded number stays spent either way, so number the next patch above the
+  highest version any live database records, which is not always the highest number left in the
+  file.
 
   Statements inside a `$$` block are untouched, as they were: their semicolons are not code, so a
-  `do $$ … end $$;` body is one statement however much it holds.
+  `do $$ … end $$;` body is one statement however much it holds. Wrapping several statements in one
+  is a way to keep them under a single name where they belong together.
+
+### Fixed
+
+- A multi-statement body no longer reaches the server cut short with nothing said about it.
+
+  What that leaves behind: a patch applied while 2.2.0 was in use is recorded as applied with only
+  its first statement run, and `ApplyPatches` will not run it again. This release stops the next one
+  from happening and repairs no database. If you applied patches under 2.2.0 — between 8 and 10
+  September 2026 — read those bodies against the schema they were meant to produce, statement by
+  statement past the first. A database whose patches all predate 2.2.0 is untouched by this, and so
+  is one whose multi-statement bodies were all `do $$ … end $$;`.
 
 - A statement left without its `;` before the next `-- name:` is now reported the way one at the end
   of a file already was. It used to go the way of everything else after the first `;`.
