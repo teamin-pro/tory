@@ -47,17 +47,15 @@ number. Entries start at 2.0.0, the first release of the current API.
 
   - **An ordinary query, or a patch no database has run yet.** Split it, giving each statement its
     own name, and call them in order.
-  - **A patch already applied somewhere.** Do not split it. Its number is recorded and its body
-    never runs again on any database that recorded it, so new numbers would be handed to statements
-    every existing database already ran: those databases skip them while a fresh one runs them, and
-    one file grows two schemas. Delete the block, or reduce it to its first statement.
+  - **A patch already applied somewhere.** Delete the block, or reduce it to its first statement.
+    Do not split it: its number is recorded, so new numbers would be handed to statements every
+    existing database already ran, and those databases would skip them while a database patched
+    later runs them.
 
-    Deleting is safe only where a fresh database arrives at the same schema without it — with
-    `create table … if not exists` in your declared schema already carrying the columns that patch
-    added, which is the usual arrangement. Where it does not, the statements still have to reach a
-    fresh database, and a corrective patch at the end of the file is the way: write it so it is
-    right against every state you have, the databases that ran the whole body, the ones that ran
-    part of it, and the ones that ran none, which `if not exists` and `if exists` usually give you.
+    Deleting costs nothing, because a patch body only ever runs on a database that predates it. One
+    that recorded the number will not run it again, and a database with no `db_version` rows is
+    baselined to the latest version without a body running at all — a fresh install takes its whole
+    shape from your declared schema and never reads the patch file for it.
 
     The recorded number stays spent whichever way you go, so number the next patch above the highest
     version any live database records, which is not always the highest number left in the file.
@@ -83,7 +81,9 @@ number. Entries start at 2.0.0, the first release of the current API.
 
   Where a patch did run truncated, the schema tells you: read the statements after the first and ask
   the database whether each landed. Repair with a new patch at the end of the file, written to be
-  right on a database that ran the whole body as well as one that ran part of it.
+  right on a database that ran the whole body as well as one that ran part of it. Only databases
+  that were already patched need it; a fresh one is baselined without running bodies and takes its
+  shape from your declared schema.
 
 - A statement left without its `;` before the next `-- name:` is now reported the way one at the end
   of a file already was. It used to go the way of everything else after the first `;`.
